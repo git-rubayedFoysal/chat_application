@@ -1,179 +1,364 @@
 # Chat Application
 
-A real-time, 1-on-1 chat application built with Node.js, TypeScript, Express,
-MongoDB (Mongoose), EJS templates, and Socket.io. Users sign in with email or
-mobile number, search for other users, create conversations, exchange messages
-with file attachments, and see typing indicators live.
+A real-time one-to-one chat application built with **Node.js, TypeScript, Express, MongoDB, and Socket.IO**. It supports user authentication, conversation management, real-time messaging, typing indicators, file attachments, and admin-only user management.
 
 ## Features
 
-- **Secure sign-in** — argon2 password hashing, JWT stored in a signed,
-  HTTP-only cookie; soft gate populates `req.user`, hard gate enforces roles.
-- **1-on-1 conversations** — duplicate pairs (A→B and B→A) are detected and
-  reuse the existing conversation.
-- **Real-time messaging** — Socket.io rooms named after the conversation ID;
-  clients only receive events for the chat currently on screen.
-- **Typing indicators** — debounced `typing` / `stop-typing` events relayed to
-  the room, with a 3-second auto-hide safety timer.
-- **File attachments** — images plus PDF/DOC/XLS/TXT up to 20 MB per message;
-  avatar uploads (JPG/JPEG/PNG) up to 5 MB.
-- **Search** — user search by name / mobile / email and conversation search
-  scoped to the logged-in user's own conversations; input is regex-escaped and
-  the `+88` country prefix is normalized.
-- **Admin user management** — admin-only `/users` routes to create and delete
-  users; failed registrations clean up already-written avatar files.
-- **Inbox ordering** — conversations sorted by `last_updated`, bumped on every
-  message; deleting a conversation removes it for everyone in real time.
+### Authentication & Authorization
+- Login using email or mobile number.
+- Password hashing with Argon2.
+- JWT-based authentication using signed, HTTP-only cookies.
+- Role-based access control (`user` and `admin`).
+- Middleware-based authentication and authorization.
+
+### User Management
+- Search users by name, email, or mobile number.
+- Admin-only user creation and deletion.
+- Upload user avatars.
+- Automatic avatar cleanup if registration fails.
+
+### Conversations
+- One-to-one conversations.
+- Duplicate conversation prevention, regardless of participant order.
+- Conversation search scoped to the authenticated user's conversations.
+- Inbox sorted by the most recently updated conversation.
+- Real-time conversation deletion for participants.
+
+### Real-Time Messaging
+- Real-time messaging with Socket.IO.
+- Conversation-specific socket rooms.
+- Typing indicators with debounce and automatic timeout.
+- Message attachments.
+
+### File Uploads
+- Image, PDF, DOC, XLS, and TXT attachments.
+- Maximum attachment size: 20 MB.
+- JPG, JPEG, and PNG avatars.
+- Maximum avatar size: 5 MB.
+- Local disk storage using Multer.
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Runtime / language | Node.js, TypeScript (strict, ES2022, NodeNext) |
-| Server | Express 5 |
-| Database | MongoDB via Mongoose |
-| Templates | EJS |
-| Real-time | Socket.io |
-| Auth | JSON Web Tokens, argon2, signed cookies |
-| Uploads | Multer (disk storage) |
+| Category | Technology |
+|---|---|
+| Runtime | Node.js |
+| Language | TypeScript |
+| Backend | Express 5 |
+| Database | MongoDB |
+| ODM | Mongoose |
+| Real-time Communication | Socket.IO |
+| Authentication | JWT, Argon2 |
 | Validation | express-validator |
-| Client | Vanilla JS, moment.js, Toastify |
+| File Upload | Multer |
+| Template Engine | EJS |
+| Frontend | Vanilla JavaScript, CSS |
+| Notifications | Toastify |
+| Date Formatting | Moment.js |
+
+## Screenshots
+
+Add your application screenshots to `docs/screenshots/`.
+
+Recommended structure:
+
+```text
+docs/
+└── screenshots/
+    ├── Login.png
+    ├── Inbox.png
+    ├── Conversation.png
+    └── User_manage.png
+```
+
+### Login
+
+![Login Page](docs/screenshots/Login.png)
+
+### Inbox
+
+![Inbox](./docs/screenshots/Inbox.png)
+
+### Conversation
+
+![Chat Conversation](./docs/screenshots/Conversation.png)
+
+### User Management
+
+![Admin User Management](docs/screenshots/User_manage.png)
 
 ## Requirements
 
-- Node.js (v20 or newer recommended)
-- MongoDB (local or Atlas connection string)
+Before running the project, make sure you have:
+
+- Node.js
+- npm
+- MongoDB running locally or a MongoDB connection URI
+- Git
 
 ## Getting Started
 
-### 1. Install dependencies
+### 1. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd chat-application
+```
+
+### 2. Install Dependencies
 
 ```bash
 npm install
 ```
 
-### 2. Configure the environment
+### 3. Configure Environment Variables
 
-Create a `.env` file in the project root by copying `.env.example`, then
-replace the placeholder values. The app validates every variable at startup
-and exits immediately if anything is missing or malformed.
+Create a `.env` file in the project root:
 
-| Variable | Description |
-|----------|-------------|
-| `PORT` | HTTP port, integer 1–65535 |
-| `Mongo_URI` | MongoDB connection string |
-| `NODE_ENV` | `development`, `production`, or `test` |
-| `JWT_SECRET` | Secret used to sign JWTs |
-| `JWT_EXPIRATION` | Token lifetime (e.g. `7d`) |
-| `COOKIE_NAME` | Name of the auth cookie |
-| `COOKIE_MAX_AGE` | Cookie lifetime in milliseconds (positive integer) |
-| `COOKIE_SECRET` | Secret used to verify signed cookies |
+```env
+PORT=3000
+Mongo_URI=mongodb://127.0.0.1:27017/chat_application
+NODE_ENV=development
 
-### 3. Bootstrap the first admin
+JWT_SECRET=your_jwt_secret
+JWT_EXPIRATION=1d
 
-There is no seeder and no UI to change roles, and `/users` is admin-only.
-Insert the first user directly into MongoDB with `role: "admin"` and an
-argon2-hashed password (or promote an existing user's `role` field).
-
-### 4. Run the app
-
-```bash
-npm run dev        # development server with tsx watch (NODE_ENV=development)
-npm run build      # compile TypeScript to dist/
-npm start          # run the compiled output (dist/index.js)
-npm run typecheck  # type-check only (tsc --noEmit)
+COOKIE_NAME=token
+COOKIE_MAX_AGE=86400000
+COOKIE_SECRET=your_cookie_secret
 ```
 
-The app listens on `PORT` and serves templates, static files, and the Socket.io
-endpoint from the same server.
+Replace the placeholder secrets with your own secure values.
+
+### 4. Run the Development Server
+
+```bash
+npm run dev
+```
+
+### 5. Build the Project
+
+```bash
+npm run build
+```
+
+### 6. Run the Production Build
+
+```bash
+npm start
+```
+
+### 7. Type Check
+
+```bash
+npm run typecheck
+```
+
+The application will be available at:
+
+```text
+http://localhost:3000
+```
+
+## Available Scripts
+
+| Script | Description |
+|---|---|
+| `npm run dev` | Starts the development server with TypeScript watch mode |
+| `npm run build` | Compiles TypeScript into JavaScript |
+| `npm start` | Runs the compiled application |
+| `npm run typecheck` | Checks TypeScript types without generating build files |
 
 ## Project Structure
 
+```text
+chat-application/
+├── docs/
+│   ├── screenshots/
+│   ├── routes.md
+│   ├── authentication.md
+│   ├── authorization.md
+│   ├── data-model.md
+│   ├── socket.md
+│   ├── search.md
+│   ├── uploads.md
+│   ├── inbox.md
+│   ├── login.md
+│   ├── users.md
+│   └── *-router-flow.md
+│
+├── public/
+│   ├── js/
+│   ├── stylesheets/
+│   └── uploads/
+│       ├── avatars/
+│       └── attachments/
+│
+├── src/
+│   ├── config/
+│   │   └── env.ts
+│   ├── controllers/
+│   ├── middlewares/
+│   ├── models/
+│   ├── router/
+│   ├── types/
+│   │   └── express/
+│   ├── utils/
+│   ├── dbConnection.ts
+│   ├── index.ts
+│   └── socket.ts
+│
+├── views/
+├── .env
+├── .env.example
+├── .gitignore
+├── package.json
+├── package-lock.json
+└── tsconfig.json
 ```
-src/
-├── index.ts                 # App entry: middleware chain, route mounts, socket init
-├── socket.ts                # Socket.io factory (initIo / getIo) + event handlers
-├── dbConnection.ts          # MongoDB connection
-├── config/
-│   └── env.ts               # Startup-validated environment variables
-├── controllers/
-│   ├── login.ts             # getLogin, login, logout
-│   ├── inbox.ts             # getInbox, searchUser, addConversation, getMessages,
-│   │                        #   deleteConversation, searchConversation
-│   ├── sendMessage.ts       # sendMessage (with socket emit)
-│   └── user.ts              # getUsers, addUser, removeUser
-├── middlewares/
-│   ├── handleAuth.ts        # checkAuthentication (soft), requireAuth (hard)
-│   ├── decorateHtmlResponse.ts
-│   ├── errorHandler.ts      # notFoundHandler, errorHandler
-│   ├── login/
-│   │   └── loginValidator.ts
-│   ├── users/
-│   │   ├── avatarUpload.ts
-│   │   └── userValidator.ts # rules + handler (deletes rejected avatar files)
-│   └── chat/
-│       ├── attachmentUpload.ts
-│       └── conversationAuth.ts  # conversationParticipant gate
-├── models/
-│   ├── user.ts              # name, email, mobile, password, avatar, role
-│   ├── conversation.ts      # creator, participant, last_updated
-│   └── message.ts           # text, sender, receiver, conversations, attachment[]
-├── router/
-│   ├── login.ts             # GET /, POST /, DELETE /
-│   ├── inbox.ts             # /inbox/* routes
-│   └── user.ts              # /users/* routes (admin only)
-├── types/
-│   └── express/             # req.user typing
-└── utils/
-    ├── escapeRegExp.ts      # regex metacharacter escaping for search
-    └── singleFileUploader.ts # shared Multer disk-storage factory
-public/
-├── uploads/
-│   ├── avatars/             # user avatars (runtime data, git-ignored)
-│   └── attachments/         # chat attachments (runtime data, git-ignored)
-├── js/                      # moment.js, toastify.js (vendored)
-└── stylesheets/
-    ├── style.css            # app styles
-    └── toastify.css         # vendored
-views/
-├── index.ejs                # login page
-├── inbox.ejs                # main chat interface
-├── users.ejs                # admin user management
-├── error.ejs                # error page
-└── partials/                # header, footer, modals
-docs/                        # architecture, module, and flow documentation
-```
+
+## Architecture Overview
+
+The application follows a modular backend structure.
+
+- **Routes:** Define application endpoints and connect them to middleware and controllers.
+- **Controllers:** Handle HTTP requests, application logic, and responses.
+- **Models:** Define MongoDB schemas and database interactions using Mongoose.
+- **Middlewares:** Handle authentication, authorization, validation, and request processing.
+- **Socket:** Manages real-time communication between connected clients.
+- **Utils:** Contains reusable helper functions.
+- **Views:** Render application pages using EJS.
+- **Public:** Contains frontend assets and uploaded files.
+
+### Authentication Flow
+
+1. A user submits their email or mobile number and password.
+2. The server validates the credentials.
+3. Argon2 verifies the submitted password against the stored hash.
+4. The server generates a JWT.
+5. The JWT is stored in a signed, HTTP-only cookie.
+6. Authentication middleware verifies the token on protected requests.
+
+### Middleware
+
+The application uses different middleware for different authorization responsibilities:
+
+- **Soft authentication:** Identifies the current user and populates `req.user` when authentication is available.
+- **Hard authentication:** Requires a valid authenticated user.
+- **Role authorization:** Restricts selected operations to users with the required role.
+- **Conversation participant authorization:** Ensures users can access only conversations in which they participate.
+
+### Real-Time Communication
+
+Socket.IO handles real-time communication.
+
+- Each conversation uses a separate room identified by its conversation ID.
+- Connected clients join their conversation rooms.
+- Messages and conversation deletion events are communicated in real time.
+- Typing indicators use debouncing and automatically disappear after a timeout.
 
 ## Documentation
 
-Module and subsystem docs live in `docs/`:
+Detailed technical documentation is available in the `docs/` directory.
 
-| File | Covers |
-|------|--------|
-| `docs/routes.md` | Full route map, middleware chains, roles, socket events |
-| `docs/authentication.md` | Login flow, JWT cookie, soft gate, logout |
-| `docs/authorization.md` | Role model, hard gate, conversation gate, route matrix |
-| `docs/data-model.md` | Schemas and the reasoning behind each decision |
-| `docs/socket.md` | Socket.io setup, rooms, event map, flows |
-| `docs/search.md` | User and conversation search internals |
-| `docs/uploads.md` | Multer factory, storage, validation, cleanup |
-| `docs/inbox.md` | Inbox module deep dive |
-| `docs/login.md` | Login module deep dive |
-| `docs/users.md` | User management module deep dive |
-| `docs/*-router-flow.md` | Mermaid flow diagrams per router |
+| Document | Description |
+|---|---|
+| [Routes](docs/routes.md) | Application routes and endpoints |
+| [Authentication](docs/authentication.md) | Authentication implementation |
+| [Authorization](docs/authorization.md) | Middleware and access control |
+| [Data Model](docs/data-model.md) | MongoDB schemas and relationships |
+| [Socket.IO](docs/socket.md) | Real-time communication |
+| [Search](docs/search.md) | User and conversation search |
+| [Uploads](docs/uploads.md) | File upload implementation |
+| [Inbox](docs/inbox.md) | Conversation inbox functionality |
+| [Login](docs/login.md) | Login implementation |
+| [Users](docs/users.md) | User management |
+
+Additional router-flow documentation is also available in the same directory.
 
 ## Known Limitations
 
-- 1-on-1 conversations only (no group chat)
-- No message edit or delete; no read receipts
-- No Socket.io authentication — room joins trust the client-supplied
-  conversation ID
-- No password reset, email/mobile verification, rate limiting, or "remember
-  me"; logout does not revoke the JWT server-side
-- Role changes require re-login (the role is read from the JWT)
-- Uploaded files are local-disk only; attachments are not cleaned up when a
-  message or conversation is deleted
+The following features and improvements are not currently implemented:
+
+- Only one-to-one conversations are supported.
+- Messages cannot be edited or deleted.
+- Read receipts are not implemented.
+- Socket.IO connections do not have independent authentication.
+- Socket room joining currently trusts the conversation ID supplied by the client.
+- Password reset is not available.
+- Email and mobile verification are not implemented.
+- Rate limiting is not implemented.
+- Remember-me functionality is not available.
+- Logging out does not revoke the JWT server-side.
+- Role changes require re-login because the role is included in the JWT.
+- Uploaded files are stored locally.
+- Attachments are not automatically cleaned up when messages or conversations are deleted.
+
+## Future Improvements
+
+Potential improvements for future development:
+
+- Add group conversations.
+- Implement message editing and deletion.
+- Add message read receipts.
+- Authenticate Socket.IO connections.
+- Validate conversation membership before allowing socket room access.
+- Implement password reset and account verification.
+- Add rate limiting and stronger security controls.
+- Add server-side JWT revocation or token rotation.
+- Implement automatic cleanup of unused uploaded files.
+- Introduce cloud-based file storage.
+- Add automated testing.
+
+## Environment Variables
+
+| Variable | Description |
+|---|---|
+| `PORT` | Server port |
+| `Mongo_URI` | MongoDB connection URI |
+| `NODE_ENV` | Application environment |
+| `JWT_SECRET` | Secret used to sign JWTs |
+| `JWT_EXPIRATION` | JWT expiration duration |
+| `COOKIE_NAME` | Authentication cookie name |
+| `COOKIE_MAX_AGE` | Cookie lifetime in milliseconds |
+| `COOKIE_SECRET` | Secret used for cookie signing |
+
+**Important:** Never commit your actual `.env` file. Keep secrets private and provide an `.env.example` file with placeholder values.
+
+## Admin Setup
+
+The application supports role-based access control.
+
+To create the initial administrator, insert a user document directly into MongoDB with:
+
+```json
+{
+  "role": "admin"
+}
+```
+
+The initial admin's password must be stored as an Argon2 hash, and the document must include the other required user fields defined by the User schema.
+
+There is currently no admin seeder or user-interface option for changing user roles.
+
+## Security Notes
+
+- Passwords are hashed using Argon2.
+- Authentication uses JWTs stored in signed, HTTP-only cookies.
+- Protected routes use authentication and authorization middleware.
+- User search and conversation search are scoped to the appropriate data.
+- Search input is escaped before being used in regular expressions.
+- Mobile numbers support `+88` normalization.
+- File uploads have size and file-type restrictions.
+
+Some security improvements remain necessary, particularly Socket.IO authentication, server-side authorization of room access, rate limiting, and token revocation.
 
 ## Author
 
-Rubayed Ahmed Foysal — licensed under ISC (see `package.json`).
+**Rubayed Ahmed Foysal**
+
+CSE Student | Backend Developer
+
+## License
+
+This project is licensed under the ISC License, as specified in `package.json`.
+

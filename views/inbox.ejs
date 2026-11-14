@@ -195,7 +195,6 @@
       // handle new/live incoming message from socket
       socket.on("new_message", ({ message, conversationId }) => {
         // only respond if current conversation is open in any client
-        console.log("Received new message:", message, "for conversation:", conversationId);
         if (conversationId == current_conversation_id) {
           // message class
           const messageClass = message.sender._id === loginUserId ? 'you-message' : 'other-message';
@@ -413,7 +412,6 @@
 
         // get response
         let result = await response.json();
-        console.log("Send message response:", result);
 
         if (!result.errors) {
           form.reset(); // reset the form
@@ -435,8 +433,6 @@
       }
 
       const deleteConversation = async () => {
-        console.log(current_conversation_id);
-
         const deleteToast = Toastify({
           text: "Deleting conversation...",
           duration: 1000,
