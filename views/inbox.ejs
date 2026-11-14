@@ -1,0 +1,520 @@
+<%- include('./partials/header.ejs'); %>
+  <div id="chat-container">
+    <div id="search-container">
+      <input type="text" id="search-input" placeholder="Search" />
+      <p class="error ">Error</p>
+      <div class="search_conversations"></div>
+    </div>
+    <div id="conversation-list">
+      <% data.forEach(function(conversation) { %>
+        <!-- conversation creator is same to logged in user, so we need to show participant name and avatar -->
+        <% if(conversation.creator._id==loginUser.id) { %>
+          <div class="conversation" data-conversation-id="<%= conversation._id %>"
+            onclick="getMessages('<%= conversation._id %>', '<%= conversation.participant.name %>')">
+            <% if (conversation.participant.avatar) { %>
+              <img src="./uploads/avatars/<%= conversation.participant.avatar %>"
+                alt="<%= conversation.participant.name %>" />
+              <% } else { %>
+                <img src="./images/nophoto.png" />
+                <% } %>
+                  <div class="title-text">
+                    <%= conversation.participant.name %>
+                  </div>
+                  <div class="conversation-date">
+                    <%= moment(conversation.last_updated).fromNow() %>
+                  </div>
+          </div>
+          <% } else { %>
+            <div class="conversation" data-conversation-id="<%= conversation._id %>"
+              onclick="getMessages('<%= conversation._id %>', '<%= conversation.creator.name %>')">
+              <% if (conversation.creator.avatar) { %>
+                <img src="./uploads/avatars/<%= conversation.creator.avatar %>"
+                  alt="<%= conversation.creator.name %>" />
+                <% } else { %>
+                  <img src="./images/nophoto.png" />
+                  <% } %>
+                    <div class="title-text">
+                      <%= conversation.creator.name %>
+                    </div>
+                    <div class="conversation-date">
+                      <%= moment(conversation.last_updated).fromNow() %>
+                    </div>
+            </div>
+            <% } %>
+              <% }); %>
+
+                <!-- show no conversation placeholder image for 0 conversations -->
+                <% if(data && data.length===0) { %>
+                  <div class="nothing"><img src="./images/no-conversation.svg"></div>
+                  <% } %>
+    </div>
+
+    <div class="new-message-container" onclick="openModal()">
+      <a href="#">+</a>
+    </div>
+
+    <div id="chat-title">
+      <span id="conversation-partner"></span>
+      <img src="./images/trash.png" onclick="deleteConversation()" alt="Delete Conversation" />
+    </div>
+
+    <!-- placeholder div if no messages are in messages area -->
+    <div id="chat-message-list">
+      <div class="nothing">select a conversation</div>
+    </div>
+
+    <!-- send message form -->
+    <form id="chat-form" method="post" enctype="multipart/form-data">
+      <label for="attachment"><img src="./images/attachment.png" alt="Add Attachment" /></label>
+      <input type="file" multiple name="attachment" class="hide" id="attachment" />
+      <input type="text" id="chat-input" name="message" placeholder="Type a message" autocomplete="off" />
+    </form>
+
+  </div>
+  <%- include('./partials/add-conversation-modal.ejs'); %>
+
+    <!-- import socket io client from cdn -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.1.3/socket.io.min.js"></script>
+
+    <script>
+
+      const form = document.querySelector('#chat-form');
+      const messageContainer = document.querySelector('#chat-message-list');
+      const chatTitleContainer = document.querySelector('#conversation-partner');
+      const loginUserId = '<%= loginUser.id %>';
+      const loginUserName = '<%= loginUser.username %>';
+      let participant = null; // selected conversation participant object
+      let current_conversation_id; // selected conversation id
+      const localHost = window.location.host;
+      const searchInputDelay = 500; // delay in ms for typing indicator
+      const searchInput = document.querySelector('#search-input');
+      const chatInput = document.querySelector('#chat-input');
+
+      // typing detector for search input
+      let searchTypingTimer;
+      searchInput.addEventListener('keyup', function () {
+        clearTimeout(searchTypingTimer);
+        searchTypingTimer = setTimeout(searchConversations, searchInputDelay);
+      });
+
+      // on keydown, clear the countdown
+      searchInput.addEventListener('keydown', function () {
+        clearTimeout(searchTypingTimer);
+      });
+
+      // search conversations function
+      const searchConversations = async () => {
+        const query = searchInput.value.trim();
+        const searchResultsContainer = document.querySelector('.search_conversations');
+        const errorElement = document.querySelector('#search-container .error');
+
+
+        if (!query) {
+          searchResultsContainer.style.display = 'none';
+          errorElement.style.display = 'none';
+          return;
+        }
+
+        try {
+          const response = await fetch(`/inbox/search-conversation`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ query })
+          });
+          const result = await response.json();
+
+          if (result.errors) {
+            errorElement.textContent = result.errors.common?.msg || "Error searching conversations";
+            errorElement.style.display = 'block';
+            searchResultsContainer.style.display = 'none';
+            return;
+          }
+
+          errorElement.style.display = 'none';
+
+          if (result.data && result.data.length > 0) {
+            let html = '<ul>';
+            result.data.forEach(conversation => {
+              const participantName = conversation.creator._id === loginUserId ? conversation.participant.name : conversation.creator.name;
+              const safeName = participantName.replace(/'/g, "\\'");
+              const avatar = conversation.creator._id === loginUserId ? (conversation.creator.avatar
+                ? "./uploads/avatars/" + conversation.creator.avatar
+                : "./images/nophoto.png") : (conversation.participant.avatar
+                  ? "./uploads/avatars/" + conversation.participant.avatar
+                  : "./images/nophoto.png");
+
+              html += `<li data-conversation-id="${conversation._id}" onclick="getMessages('${conversation._id}', '${safeName}')">
+                        <div class="avatar">
+                          <img src="${avatar}" />
+                        </div>
+                        <div>
+                          <div>${participantName}</div>
+                        <div>${moment(conversation.last_updated).fromNow()}</div>
+                        </div>
+                      </li>`;
+            });
+            html += '</ul>';
+            searchResultsContainer.innerHTML = html;
+            searchResultsContainer.style.display = 'block';
+          } else {
+            searchResultsContainer.innerHTML = '<p>No conversations found.</p>';
+            searchResultsContainer.style.display = 'block';
+          }
+        } catch (error) {
+          console.error("Error searching conversations:", error);
+          errorElement.textContent = "Error searching conversations";
+          errorElement.style.display = 'block';
+          searchResultsContainer.style.display = 'none';
+        }
+      };
+
+
+
+      // socket initialization
+      const socket = io(localHost);
+
+      socket.on("connect", () => {
+        console.log("Connected to server via socket");
+        // Rejoin the currently open conversation after a reconnect,
+        // otherwise live messages and typing stop working silently.
+        if (current_conversation_id) {
+          socket.emit("join_conversation", current_conversation_id);
+        }
+      });
+
+      socket.on("connect_error", (error) => {
+        console.error(error.message);
+      });
+
+      socket.on("disconnect", () => {
+        console.log("Disconnected");
+      });
+
+      // handle new/live incoming message from socket
+      socket.on("new_message", ({ message, conversationId }) => {
+        // only respond if current conversation is open in any client
+        console.log("Received new message:", message, "for conversation:", conversationId);
+        if (conversationId == current_conversation_id) {
+          // message class
+          const messageClass = message.sender._id === loginUserId ? 'you-message' : 'other-message';
+
+          const senderAvatar = message.sender.avatar ? `<img src="./uploads/avatars/${message.sender.avatar}" alt="${message.sender.name}" />` : `<img src="./images/nophoto.png" alt="${message.sender.name}" />`;
+
+          // message attachments
+          let attachments = '<div class="attachments">';
+
+          if (message.attachment && message.attachment.length > 0) {
+            message.attachment.forEach(attachment => {
+              attachments += `<img src="./uploads/attachments/${attachment}" /> `;
+            });
+          }
+
+          attachments += '</div>';
+
+          let messageHTML;
+
+          // do not show avatar for loggedin user
+          if (message.sender._id == loginUserId) {
+            messageHTML = `<div class="message-row ${messageClass}"><div class="message-content">
+              <div class="message-text">${message.text}</div>
+              ${attachments}
+              <div class="message-time">${moment(message.date_time).fromNow()}</div>
+            </div></div>`;
+          } else {
+            messageHTML = `<div class="message-row ${messageClass}"><div class="message-content">
+              ${senderAvatar}
+              <div class="message-text">${message.text}</div>
+              ${attachments}
+              <div class="message-time">${moment(message.date_time).fromNow()}</div>
+            </div></div>`;
+          }
+
+          // append the incoming message to message area as last item
+          const messageList = document.querySelector('#chat-message-list');
+          if (messageList.firstChild) {
+            messageList.firstChild.insertAdjacentHTML('beforeBegin', messageHTML);
+          } else {
+            messageList.insertAdjacentHTML('afterbegin', messageHTML);
+          }
+        }
+      });
+
+      // typing indicator for chat input
+      let chatTypingTimer;
+      let typingHideTimer;
+      let isTyping = false;
+
+      // handle typing indicator for chat input
+      chatInput.addEventListener("input", () => {
+        if (!isTyping) {
+          isTyping = true;
+          socket.emit("typing", { conversationId: current_conversation_id, isTyping: true, senderId: loginUserId, senderName: loginUserName });
+        }
+
+        clearTimeout(chatTypingTimer);
+        chatTypingTimer = setTimeout(() => {
+          isTyping = false;
+          socket.emit("stop-typing", { conversationId: current_conversation_id, isTyping: false, senderId: loginUserId, senderName: loginUserName });
+        }, 1500);
+      });
+
+      // listen for typing events from the server
+      socket.on("typing", ({ conversationId, userId, userName }) => {
+        if (conversationId === current_conversation_id) {
+          chatTitleContainer.textContent = `${userName} is typing...`;
+          chatTitleContainer.style.fontStyle = 'italic';
+          chatTitleContainer.style.fontWeight = 'semi-bold';
+          chatTitleContainer.style.fontSize = '13px';
+
+          // Auto-hide if the sender never sends stop-typing (e.g. closed tab)
+          clearTimeout(typingHideTimer);
+          typingHideTimer = setTimeout(() => {
+            chatTitleContainer.textContent = userName;
+            chatTitleContainer.style.fontStyle = 'normal';
+            chatTitleContainer.style.fontWeight = 'bold';
+            chatTitleContainer.style.fontSize = '16px';
+          }, 3000);
+        }
+      });
+
+      // listen for stop typing events from the server
+      socket.on("stop-typing", ({ conversationId, userId, userName }) => {
+        if (conversationId === current_conversation_id) {
+          clearTimeout(typingHideTimer);
+          chatTitleContainer.textContent = userName;
+          chatTitleContainer.style.fontStyle = 'normal';
+          chatTitleContainer.style.fontWeight = 'bold';
+          chatTitleContainer.style.fontSize = '16px';
+        }
+      });
+
+      // get messages of a conversation
+      async function getMessages(conversation_id, current_conversation_name) {
+
+        // messages failure toast
+        const messagesFailureToast = Toastify({
+          text: "Error loading messages!",
+          duration: 1000,
+        });
+
+        try {
+          // Stop typing in the previous room before switching conversations
+          clearTimeout(chatTypingTimer);
+          clearTimeout(typingHideTimer);
+          isTyping = false;
+          if (current_conversation_id) {
+            socket.emit("stop-typing", {
+              conversationId: current_conversation_id,
+              isTyping: false,
+              senderId: loginUserId,
+              senderName: loginUserName,
+            });
+          }
+
+          let response = await fetch(`/inbox/messages/${conversation_id}`);
+          const result = await response.json();
+
+
+          if (!result.errors && result.data) {
+            form.style.visibility = 'visible';
+
+            const { data, user, conversationId } = result;
+
+            participant = data.participant;
+            current_conversation_id = conversationId;
+
+            // Join the conversation room for real-time updates
+            socket.emit("join_conversation", conversationId);
+
+            if (data.messages) {
+
+              let allMessages = '';
+
+              if (data.messages.length > 0) {
+                data.messages.forEach((message) => {
+                  let senderAvatar = message.sender.avatar ? `./uploads/avatars/${message.sender.avatar}` : './images/nophoto.png';
+                  const messageClass = message.sender._id === loginUserId ? 'you-message' : 'other-message';
+                  const showAvatar = message.sender._id === loginUserId ? '' : `<img src="${senderAvatar}" alt="${message.sender.name}" />`;
+
+                  // message attachments
+                  let attachments = '<div class="attachments">';
+
+                  if (message.attachment && message.attachment.length > 0) {
+                    message.attachment.forEach(attachment => {
+                      attachments += `<img src="./uploads/attachments/${attachment}" /> `;
+                    });
+                  }
+
+                  attachments += '</div>';
+
+                  // final message html
+                  let messageHTML = `<div class="message-row ${messageClass}"><div class="message-content">
+                        ${showAvatar}
+                        <div class="message-text">${message.text}</div>
+                        ${attachments}
+                        <div class="message-time">${moment(message.date_time).fromNow()}</div>
+                      </div></div>`;
+
+                  allMessages += messageHTML;
+                  messageContainer.innerHTML = allMessages;
+                });
+              } else if (data.messages.length === 0) {
+                messageContainer.innerHTML = '<div class="message-row"></div>';
+              }
+
+              chatTitleContainer.textContent = current_conversation_name;
+            }
+          } else {
+            messagesFailureToast.showToast();
+          }
+        } catch (error) {
+          console.error("Failed to load messages:", error);
+          messagesFailureToast.showToast();
+        }
+      }
+
+      // message sending
+      form.onsubmit = async function (event) {
+        event.preventDefault();
+
+        // Validate message
+        const messageInput = form.querySelector('input[name="message"]');
+        if (!messageInput?.value?.trim()) {
+          Toastify({ text: "Please type a message.", duration: 1000 }).showToast();
+          return;
+        }
+
+        // Validate participant is set and has an ID
+        if (!participant || !participant._id) {
+          Toastify({ text: "No conversation selected. Click a conversation first.", duration: 1000 }).showToast();
+          return;
+        }
+
+        // Validate conversation ID
+        if (!current_conversation_id) {
+          Toastify({ text: "No conversation ID.", duration: 1000 }).showToast();
+          return;
+        }
+
+        // prepare the form data
+        const formData = new FormData(form);
+        formData.append('receiverId', participant._id);
+        formData.append('receiverName', participant.name);
+        formData.append('avatar', participant.avatar || '');
+        formData.append('conversationId', current_conversation_id);
+
+        // send the request to server
+        let response = await fetch("/inbox/message", {
+          method: "POST",
+          body: formData,
+        });
+
+        // get response
+        let result = await response.json();
+        console.log("Send message response:", result);
+
+        if (!result.errors) {
+          form.reset(); // reset the form
+
+          // Clear typing indicator immediately after sending a message
+          clearTimeout(chatTypingTimer);
+          isTyping = false;
+          if (current_conversation_id) {
+            socket.emit("stop-typing", {
+              conversationId: current_conversation_id,
+              isTyping: false,
+              senderId: loginUserId,
+              senderName: loginUserName,
+            });
+          }
+        } else {
+          Toastify({ text: result.errors.common?.msg || "Error sending message", duration: 1000 }).showToast();
+        }
+      }
+
+      const deleteConversation = async () => {
+        console.log(current_conversation_id);
+
+        const deleteToast = Toastify({
+          text: "Deleting conversation...",
+          duration: 1000,
+        });
+
+        try {
+          let response = await fetch(`/inbox/conversation/${current_conversation_id}`, {
+            method: "DELETE",
+          });
+
+          const result = await response.json();
+
+          if (!result.errors) {
+            // Remove the deleted conversation from the list
+            const conversationList = document.querySelector('#conversation-list');
+            const conversationElement = conversationList.querySelector(`[data-conversation-id="${current_conversation_id}"]`);
+            if (conversationElement) {
+              conversationElement.remove();
+            }
+
+            // Clear the chat area
+            messageContainer.innerHTML = '<div class="nothing"><img src="./images/no-conversation.svg"></div>';
+
+            chatTitleContainer.textContent = '';
+            form.style.visibility = 'hidden';
+
+            Toastify({ text: "Conversation deleted successfully.", duration: 1000 }).showToast();
+          } else {
+            Toastify({ text: result.errors.common?.msg || "Error deleting conversation", duration: 1000 }).showToast();
+          }
+        } catch (error) {
+          console.error("Failed to delete conversation:", error);
+          Toastify({ text: "Error deleting conversation", duration: 1000 }).showToast();
+        }
+      };
+
+      // auto-open a conversation after creating/finding it via /inbox/conversation
+      const openId = new URLSearchParams(window.location.search).get("open");
+      if (openId) {
+        const el = document.querySelector(
+          `.conversation[data-conversation-id="${openId}"]`
+        );
+        if (el) {
+          const partnerName =
+            el.querySelector(".title-text")?.textContent.trim() || "";
+          getMessages(openId, partnerName);
+
+          // clean the URL so a refresh doesn't re-trigger auto-open
+          history.replaceState({}, "", window.location.pathname);
+        }
+      }
+
+      // Listen for conversation_deleted broadcast from any client (e.g.
+      // the other participant deleting the chat). Removes it from the
+      // sidebar in real time and clears the screen if it is currently open.
+      socket.on("conversation_deleted", ({ conversationId }) => {
+        const el = document.querySelector(
+          `#conversation-list [data-conversation-id="${conversationId}"]`
+        );
+        if (el) {
+          el.remove();
+        }
+
+        if (conversationId === current_conversation_id) {
+          messageContainer.innerHTML =
+            '<div class="nothing"><img src="./images/no-conversation.svg"></div>';
+          chatTitleContainer.textContent = "";
+          form.style.visibility = "hidden";
+          current_conversation_id = undefined;
+          participant = null;
+
+          // Stop typing timers so they don't fire against a deleted room
+          clearTimeout(chatTypingTimer);
+          clearTimeout(typingHideTimer);
+          isTyping = false;
+        }
+      });
+    </script>
+
+
+    <%- include('partials/footer') %>

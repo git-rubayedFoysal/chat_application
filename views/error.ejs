@@ -1,0 +1,15 @@
+<%- include("./partials/header.ejs") %>
+
+<div class="error-page">
+  <div class="error-card">
+    <div class="error-icon">⚠️</div>
+    <div class="error-status"><%= error.status %></div>
+    <div class="error-message"><%= error.message %></div>
+    <% if (error.stack) { %>
+      <pre class="error-stack"><%= error.stack %></pre>
+    <% } %>
+    <a href="/" class="error-home">← Go Home</a>
+  </div>
+</div>
+
+<%- include("./partials/footer.ejs") %>

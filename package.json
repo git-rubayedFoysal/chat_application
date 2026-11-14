@@ -1,0 +1,46 @@
+{
+  "name": "chat-application",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "Rubayed Ahmed Foysal",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "NODE_ENV=development tsx watch src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "argon2": "^0.45.2",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^18.0.9",
+    "ejs": "^7.0.2",
+    "express": "^5.3.0",
+    "express-validator": "^7.3.2",
+    "http-errors": "^2.0.1",
+    "jsonwebtoken": "^9.0.3",
+    "moment": "^2.31.0",
+    "mongoose": "^9.11.4",
+    "multer": "^2.5.0",
+    "socket.io": "^4.8.4"
+  },
+  "allowScripts": {
+    "argon2@0.45.2": true,
+    "tsx@4.23.15": true,
+    "http-errors@2.0.1": true,
+    "multer@2.5.0": true,
+    "jsonwebtoken@9.0.3": true
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^5.0.6",
+    "@types/http-errors": "^2.0.5",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.3.0",
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

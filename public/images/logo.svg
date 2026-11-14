@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#22d3ee"/>
+    </linearGradient>
+  </defs>
+
+  <!-- dark circular badge -->
+  <circle cx="256" cy="256" r="240" fill="#10132a"/>
+
+  <!-- accent ring around the badge -->
+  <circle cx="256" cy="256" r="232" fill="none" stroke="url(#accent)" stroke-width="18"/>
+
+  <!-- speech bubble -->
+  <rect x="136" y="150" width="240" height="184" rx="92" ry="92" fill="url(#accent)"/>
+  <path d="M186 322 L160 384 L246 330 Z" fill="#10b981"/>
+
+  <!-- typing dots -->
+  <circle cx="192" cy="242" r="22" fill="#ffffff"/>
+  <circle cx="256" cy="242" r="22" fill="#ffffff"/>
+  <circle cx="320" cy="242" r="22" fill="#ffffff"/>
+</svg>
