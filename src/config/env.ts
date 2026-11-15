@@ -4,7 +4,7 @@ import type { SignOptions } from "jsonwebtoken";
 
 // Validate configuration at startup and fail fast: a missing secret or an
 // invalid port would otherwise surface later as a confusing runtime error.
-const PORT = Number(process.env.PORT);
+const PORT = Number(process.env.PORT) || 5000;
 const MONGO_URI = process.env.Mongo_URI;
 const COOKIE_SECRET = process.env.COOKIE_SECRET;
 const NODE_ENV = process.env.NODE_ENV;
