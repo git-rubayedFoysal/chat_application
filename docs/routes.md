@@ -44,7 +44,7 @@ Shared middleware applied to **all** routes under a prefix:
 |--------|------|---------------------------|------------|---------------|------|-------------|
 | GET | `/users/` | none | `getUsers` | Yes | admin | List all users, render `users.ejs` |
 | POST | `/users/` | `avatarUpload`, `addUserValidator`, `addUserValidatorHandler` | `addUser` | Yes | admin | Create a new user with optional avatar upload |
-| DELETE | `/users/:id` | none | `removeUser` | Yes | admin | Delete a user by ID and their avatar file |
+| DELETE | `/users/:id` | none | `removeUser` | Yes | admin | Delete a user by ID and destroy their Cloudinary avatar |
 
 **Access:** Admin only. `requireAuth(["admin"])` blocks non-admin users (403).
 

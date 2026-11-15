@@ -49,7 +49,7 @@ All login routes are mounted under `/` (root) in `src/index.ts` and defined in `
 3. If no user found, throws 404 error: "Requested user was not found."
 4. Verifies the password using `argon2` (`verify` function).
 5. If password is invalid, throws 400 error: "Invalid Username or Password. Try again."
-6. Builds a user object with `id`, `username`, `email`, `mobile`, `avatar`, `role`.
+6. Builds a user object with `id`, `username`, `email`, `mobile`, `public_id`, `url`, `role`.
 7. Signs a JWT token with the user object and `JWT_SECRET`.
 8. Sets an HTTP-only, signed cookie with the token (`COOKIE_NAME`).
 9. Sets `res.locals.loginUser` for template use.
@@ -279,7 +279,7 @@ src/
 │   └── handleAuth.ts      # checkAuthentication, requireAuth
 ├── models/
 │   ├── conversation.ts   # creator, participant, last_updated
-│   ├── message.ts        # text, sender, receiver, conversations, attachment[]
+│   ├── message.ts        # text, sender, receiver, conversations, attachment[{ public_id, url, resource_type }]
 │   └── user.ts           # name, email, mobile, avatar, password, role
 ├── router/
 │   ├── inbox.ts          # Route definitions
@@ -299,9 +299,7 @@ views/
     └── user.modal.ejs
 
 public/
-├── uploads/
-│   ├── avatars/
-│   └── attachments/
+├── images/
 ├── js/
 │   ├── moment.js
 │   └── toastify.js

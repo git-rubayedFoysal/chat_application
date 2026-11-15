@@ -653,6 +653,27 @@ input[type="submit"]:active {
   width: 32px;
 }
 
+/* Attachment thumbnails (inline images) */
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.attachments img {
+  width: auto;
+  max-width: 220px;
+  max-height: 220px;
+  border-radius: 10px;
+}
+
+.attachments a {
+  color: var(--light);
+  word-break: break-all;
+}
+
 .you-message {
   justify-content: end;
 }

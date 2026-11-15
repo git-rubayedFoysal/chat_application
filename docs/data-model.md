@@ -24,7 +24,8 @@ No diagrams are used — everything is explained in plain text.
 | `email` | String | Required, trimmed, lowercased |
 | `mobile` | String | Required |
 | `password` | String | Required; stored as an argon2 hash, never plaintext |
-| `avatar` | String | Optional filename under `public/uploads/avatars/` |
+| `public_id` | String | Optional Cloudinary identifier for the avatar |
+| `url` | String | Optional Cloudinary `secure_url` for the avatar |
 | `role` | String | `enum: ["user", "admin"]`, `default: "user"` |
 
 All schemas use `timestamps: true` (`createdAt` / `updatedAt`).
@@ -75,7 +76,7 @@ bumps it with `$set: { last_updated: new Date() }`.
 | `receiver` | ObjectId ref `"user"` | Required |
 | `date_time` | Date | `default: Date.now`; the display timestamp |
 | `conversations` | ObjectId ref `"conversation"` | Required; denormalized |
-| `attachment` | `[String]` | Filenames only; files live on disk |
+| `attachment` | `[{ public_id, url, resource_type }]` | Cloudinary identifiers/URLs for each file |
 
 **Why `conversations` is stored on the message:** messages are listed and
 bulk-deleted by conversation. A direct reference means `Message.find({
@@ -87,9 +88,12 @@ time used by the templates (`moment(message.date_time).fromNow()`); the
 auto `createdAt` is used for sort order (`getMessages` sorts
 `createdAt: -1`).
 
-**Why attachments are filenames:** the files themselves are saved to
-`public/uploads/attachments/` by Multer; the database only needs the name,
-which the static middleware turns into a URL.
+**Why attachments store Cloudinary references:** each file is uploaded to
+Cloudinary from a memory buffer and the message keeps
+`{ public_id, url, resource_type }` per file. The `public_id` is needed to
+destroy the asset later, `url` is the display URL used by the templates, and
+`resource_type` records which pipeline (`image` or `raw`) the asset lives in so
+`destroy()` targets the right one.
 
 ---
 
@@ -127,8 +131,12 @@ which the static middleware turns into a URL.
 - **No message edit/delete** — once saved, a message is immutable.
 - **No read receipts** — nothing tracks whether a message was seen.
 - **No group chat** — the schema cannot express more than two participants.
-- **Attachments are not cleaned up** when a message or conversation is
-  deleted; the file remains under `public/uploads/attachments/`.
+- **Attachments are cleaned up only on conversation deletion** — deleting a
+  conversation destroys its messages' Cloudinary assets, but individual messages
+  cannot be deleted.
+- **Avatar and attachment assets depend on Cloudinary** — `public_id` values are
+  stored so assets can be destroyed, but a failed destroy leaves an orphaned
+  asset in Cloudinary.
 
 ---
 
@@ -136,4 +144,4 @@ which the static middleware turns into a URL.
 
 - `docs/authorization.md` — how these schemas are enforced per request.
 - `docs/routes.md` — which routes read and write each model.
-- `docs/uploads.md` — where attachment and avatar files live.
+- `docs/uploads.md` — how avatar and attachment uploads use Cloudinary.

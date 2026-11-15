@@ -6,14 +6,15 @@ import createError from "http-errors";
 import moment from "moment";
 import Message from "../models/message.js";
 import { getIo } from "../socket.js";
+import cloudinary from "../config/cloudinary.js";
 
 export const getInbox: RequestHandler = async (req, res, next) => {
   try {
     const conversation = await Conversation.find({
       $or: [{ creator: req.user?.id }, { participant: req.user?.id }],
     })
-      .populate("creator", "name avatar")
-      .populate("participant", "name avatar");
+      .populate("creator", "name url")
+      .populate("participant", "name url");
 
     // Expose data to the template via the project's res.locals convention.
     res.locals.data = conversation;
@@ -41,7 +42,7 @@ export const searchUser: RequestHandler = async (req, res, next) => {
           { mobile: mobileRegex },
           { email: emailRegex },
         ],
-      }).select("name email mobile avatar");
+      }).select("name email mobile url");
 
       res.json(users);
     } else {
@@ -89,8 +90,8 @@ export const searchConversation: RequestHandler = async (req, res, next) => {
     const conversations = await Conversation.find({
       $or: [{ creator: userId }, { participant: userId }],
     })
-      .populate("creator", "name avatar email mobile")
-      .populate("participant", "name avatar email mobile");
+      .populate("creator", "name url email mobile")
+      .populate("participant", "name url email mobile");
 
     // Match against the *other* participant, since the logged-in user's own
     // details would not identify a conversation in their sidebar.
@@ -204,8 +205,8 @@ export const getMessages: RequestHandler = async (req, res, next) => {
       _id: conversationId,
       $or: [{ creator: userId }, { participant: userId }],
     })
-      .populate("creator", "name avatar")
-      .populate("participant", "name avatar");
+      .populate("creator", "name url")
+      .populate("participant", "name url");
 
     if (!conversation) {
       throw createError(403, "Access denied");
@@ -220,7 +221,7 @@ export const getMessages: RequestHandler = async (req, res, next) => {
     const messages = await Message.find({
       conversations: conversationId,
     } as any)
-      .populate("sender", "name avatar")
+      .populate("sender", "name url")
       .sort({ createdAt: -1 });
 
     res.json({
@@ -269,6 +270,37 @@ export const deleteConversation: RequestHandler = async (req, res, next) => {
     if (!conversation) {
       throw createError(403, "Access denied");
     }
+
+    type Attachment = {
+      public_id?: string | null;
+      url?: string | null;
+      resource_type?: "image" | "raw" | "video" | null;
+    };
+
+    const messages = await Message.find({
+      conversations: conversationId,
+    } as any)
+      .select("attachment")
+      .lean<{ attachment?: Attachment[] }[]>();
+
+    // Destroy the stored assets before removing the DB records, so a failed
+    // Cloudinary call can still be retried instead of leaving orphaned files.
+    // `resource_type` must match the pipeline the file was uploaded to;
+    // legacy attachments without it default to "image".
+    await Promise.all(
+      messages.flatMap((m) =>
+        (m.attachment ?? [])
+          .filter(
+            (a): a is Attachment & { public_id: string } =>
+              Boolean(a?.public_id),
+          )
+          .map((a) =>
+            cloudinary.uploader.destroy(a.public_id, {
+              resource_type: a.resource_type ?? "image",
+            }),
+          ),
+      ),
+    );
 
     await Conversation.deleteOne({ _id: conversationId });
     await Message.deleteMany({ conversations: conversationId } as any);

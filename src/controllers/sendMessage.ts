@@ -3,6 +3,7 @@ import Conversation from "../models/conversation.js";
 import Message from "../models/message.js";
 import createError from "http-errors";
 import { getIo } from "../socket.js";
+import { uploadToCloudinary } from "../utils/uploadToCloudinary.js";
 
 export const sendMessage: RequestHandler = async (req, res, next) => {
   const userId = req.user?.id;
@@ -28,9 +29,40 @@ export const sendMessage: RequestHandler = async (req, res, next) => {
       throw createError(403, "Access denied");
     }
 
-    // Store only the filenames; the files themselves are already on disk.
-    const attachments = (req.files as Express.Multer.File[] | undefined)?.map(
-      (file) => file.filename,
+    const files = (req.files as Express.Multer.File[] | undefined) ?? [];
+
+    // Upload each attachment to Cloudinary. "auto" lets PDFs/docs use the
+    // correct resource type instead of being forced through the image pipeline.
+    const uploads = await Promise.all(
+      files.map((file) =>
+        uploadToCloudinary(
+          file.buffer,
+          `chat_application/messages/${conversationId}`,
+          "auto",
+          file.mimetype,
+        ),
+      ),
+    );
+
+    const attachments = uploads.map(
+      ({ public_id, secure_url, resource_type }) => {
+        if (!public_id || !secure_url) {
+          throw createError("Attachment upload failed!");
+        }
+
+        // "auto" resolves to a concrete pipeline; normalize anything unexpected
+        // to "image" so the stored value matches the schema enum.
+        const normalizedType: "image" | "raw" | "video" =
+          resource_type === "raw" || resource_type === "video"
+            ? resource_type
+            : "image";
+
+        return {
+          public_id,
+          url: secure_url,
+          resource_type: normalizedType,
+        };
+      },
     );
 
     const newMessage = await Message.create({
@@ -38,7 +70,7 @@ export const sendMessage: RequestHandler = async (req, res, next) => {
       sender: userId,
       receiver: receiverId,
       conversations: conversationId,
-      attachment: attachments || [],
+      attachment: attachments,
     });
 
     // Bump last_updated so the conversation rises to the top of the inbox list.
@@ -48,8 +80,8 @@ export const sendMessage: RequestHandler = async (req, res, next) => {
     );
 
     const populatedMessage = await Message.findById(newMessage._id)
-      .populate("sender", "name avatar")
-      .populate("receiver", "name avatar");
+      .populate("sender", "name url")
+      .populate("receiver", "name url");
 
     if (!populatedMessage) {
       throw createError(500, "Failed to retrieve the sent message.");

@@ -4,7 +4,6 @@ import { uploader } from "../../utils/singleFileUploader.js";
 export const attachmentUpload: RequestHandler = (req, res, next) => {
   // Chat attachments cover images plus common documents, capped at 20 MB.
   const upload = uploader(
-    "attachments",
     [
       "image/jpeg",
       "image/png",

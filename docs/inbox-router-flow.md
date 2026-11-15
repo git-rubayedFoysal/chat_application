@@ -22,7 +22,7 @@ flowchart TD
     Router -- "POST /search" --> SearchUser["searchUser controller"]
     SearchUser -- "strip '+88', build regexes" --> EmptySearch{"query empty?"}
     EmptySearch -- "yes" --> Throw400Search["throw createError(400)"]
-    EmptySearch -- "no" --> UserFind["User.find($or: name, mobile, email)<br/>.select('name email mobile avatar')"]
+    EmptySearch -- "no" --> UserFind["User.find($or: name, mobile, email)<br/>.select('name email mobile url')"]
     UserFind --> JsonUsers["res.json(users)"]
     Throw400Search --> CatchSearch["catch block"]
     UserFind -- "catch" --> CatchSearch
@@ -54,7 +54,7 @@ flowchart TD
     ConvFound -- "yes" --> GetMessages["getMessages controller"]
     GetMessages -- "re-check membership" --> MsgFound{"conversation found?"}
     MsgFound -- "no" --> Throw403Msg["throw createError(403, 'Access denied')"]
-    MsgFound -- "yes" --> MsgFind["Message.find({ conversations })<br/>.populate('sender', 'name avatar')<br/>.sort({ createdAt: -1 })"]
+    MsgFound -- "yes" --> MsgFind["Message.find({ conversations })<br/>.populate('sender', 'name url')<br/>.sort({ createdAt: -1 })"]
     MsgFind --> JsonMsgs["res.json({ data: { messages, participant },<br/>user, conversationId })"]
     Throw403Msg --> CatchMsgs["catch block"]
     MsgFind -- "catch" --> CatchMsgs

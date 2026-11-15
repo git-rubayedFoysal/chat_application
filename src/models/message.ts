@@ -27,9 +27,22 @@ const messageSchema = new mongoose.Schema(
       ref: "conversation",
       required: true,
     },
-    attachment: [{
-      type: String,
-    }],
+    attachment: [
+      {
+        public_id: {
+          type: String,
+        },
+        url: {
+          type: String,
+        },
+        // Cloudinary pipeline the asset lives in ("image" for photos/PDFs,
+        // "raw" for DOC/XLS/TXT). Needed to delete the asset correctly.
+        resource_type: {
+          type: String,
+          enum: ["image", "raw", "video"],
+        },
+      },
+    ],
   },
   { timestamps: true },
 );

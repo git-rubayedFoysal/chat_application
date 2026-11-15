@@ -76,7 +76,7 @@ Server relay handlers map the client payload onto the smaller relay payload
 2. The conversation's `last_updated` is bumped so it rises to the top of the
    inbox list.
 3. The message is re-fetched with `sender` and `receiver` populated
-   (`name`, `avatar`).
+   (`name`, `url`).
 4. The server emits to the room:
    ```typescript
    io.to(conversationId).emit("new_message", {

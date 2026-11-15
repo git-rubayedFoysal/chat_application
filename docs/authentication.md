@@ -30,7 +30,7 @@ Step-by-step:
 4. The stored hash is checked with argon2: `verify(user.password, req.body.password)`.
 5. Wrong password → `400 "Invalid Username or Password. Try again."`.
 6. A payload object is built with `id`, `username`, `email`, `mobile`,
-   `avatar`, and `role`.
+   `public_id`, `url`, and `role`.
 7. The payload is signed into a JWT with `env.JWT_SECRET` and
    `env.JWT_EXPIRATION`.
 8. The token is set as a signed, HTTP-only cookie (see section 2).

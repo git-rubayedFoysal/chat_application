@@ -51,7 +51,7 @@ Used by the "Create New Conversation" modal
 2. The query is normalized (section 1).
 3. An empty query throws `400 "Search query cannot be empty."`.
 4. One query runs against `User` with `$or: [name, mobile, email]`, selecting
-   only `name email mobile avatar`.
+   only `name email mobile url`.
 5. The matching users are returned as a plain JSON array.
 
 Client behavior: the modal sends the request 500 ms after the user stops
@@ -68,7 +68,7 @@ Used by the inbox sidebar search box (`views/inbox.ejs`).
 1. Input arrives as `req.body.query`.
 2. The query is normalized; an empty query throws `400`.
 3. The server loads **all** conversations where the user is `creator` or
-   `participant`, populating both sides with `name avatar email mobile`.
+   `participant`, populating both sides with `name url email mobile`.
 4. Each conversation is filtered in JavaScript against the **other**
    participant (never the logged-in user):
 

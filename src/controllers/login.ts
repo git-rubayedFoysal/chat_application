@@ -34,7 +34,8 @@ export const login: RequestHandler = async (req, res) => {
       username: user.name,
       email: user.email,
       mobile: user.mobile,
-      avatar: user.avatar,
+      public_id: user.public_id,
+      url: user.url,
       role: user.role,
     };
 

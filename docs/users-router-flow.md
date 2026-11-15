@@ -26,20 +26,19 @@ flowchart TD
     AddUserValidator --> ValidatorHandler["addUserValidatorHandler"]
 
     ValidatorHandler -- "no errors: next()" --> AddUser["addUser controller"]
-    ValidatorHandler -- "has errors" --> CleanupFiles["unlink uploaded avatar files"]
-    CleanupFiles --> ValErr["400: validation errors JSON"]
+    ValidatorHandler -- "has errors" --> ValErr["400: validation errors JSON<br/>(memory buffers discarded)"]
 
-    AddUser -- "hash + User.create()" --> Success201["201: user added JSON"]
+    AddUser -- "upload to Cloudinary + User.create()" --> Success201["201: user added JSON"]
     AddUser -- "catch" --> Err500["500: unknown error JSON"]
 
     %% DELETE /users/:id
     Router -- "DELETE /:id" --> RemoveUser["removeUser controller"]
     RemoveUser -- "findByIdAndDelete" --> UserFound{"user exists?"}
     UserFound -- "no" --> Err404["404: user not found JSON"]
-    UserFound -- "yes" --> AvatarExists{"avatar file?"}
-    AvatarExists -- "yes" --> UnlinkAvatar["unlink avatar file"]
+    UserFound -- "yes" --> AvatarExists{"public_id set?"}
+    AvatarExists -- "yes" --> DestroyAvatar["cloudinary.uploader.destroy(public_id)"]
     AvatarExists -- "no" --> Success200["200: user removed JSON"]
-    UnlinkAvatar --> Success200
+    DestroyAvatar --> Success200
     RemoveUser -- "catch" --> LogError["console.error(error)"]
     LogError --> Err500Del["500: unknown error JSON"]
 ```

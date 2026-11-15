@@ -20,7 +20,7 @@ All user routes are mounted under `/users` in `src/index.ts` and defined in `src
 |--------|------|------------|--------------|
 | `GET` | `/users/` | `getUsers` | Show the user management page with all users |
 | `POST` | `/users/` | `addUser` | Create a new user with optional avatar upload |
-| `DELETE` | `/users/:id` | `removeUser` | Delete a user and their avatar file |
+| `DELETE` | `/users/:id` | `removeUser` | Delete a user and destroy their Cloudinary avatar |
 
 ---
 
@@ -33,7 +33,7 @@ All user routes are mounted under `/users` in `src/index.ts` and defined in `src
 **What happens step-by-step:**
 
 1. Queries the `User` collection for all users.
-2. Selects only these fields: `_id`, `name`, `email`, `mobile`, `avatar`.
+2. Selects only these fields: `_id`, `name`, `email`, `mobile`, `public_id`, `url`.
 3. Uses `.lean()` for faster plain JavaScript object output.
 4. Renders the `users.ejs` template with the users array.
 
@@ -48,17 +48,18 @@ All user routes are mounted under `/users` in `src/index.ts` and defined in `src
 **What happens step-by-step:**
 
 1. Receives `name`, `email`, `mobile`, `password` from the request body.
-2. Receives optional avatar file from `req.files` (handled by `avatarUpload` middleware).
+2. Receives the optional avatar file from `req.files` (parsed into memory by the `avatarUpload` middleware).
 3. Hashes the password using `argon2` (`hash` function).
-4. Creates a new `User` document with:
+4. If an avatar was provided, uploads its buffer to Cloudinary (`uploadToCloudinary`) under `chat_application/users/avatar/<email>` and captures `public_id` and `secure_url`.
+5. Creates a new `User` document with:
    - `name`
    - `email`
    - `mobile`
    - `password` (hashed)
-   - `avatar` (filename, if uploaded)
-5. Returns 201 with success message: `{ "message": "User was added successfully!" }`
+   - `public_id` / `url` (when an avatar was uploaded)
+6. Returns 201 with success message: `{ "message": "User was added successfully!" }`
 
-**On failure:** Returns 500 with error: `{ "errors": { "common": { "msg": "Unknown error occur." } } }`
+**On failure:** Returns 500 with error: `{ "errors": { "common": { "msg": "Unknown error occurred." } } }`
 
 ---
 
@@ -71,7 +72,7 @@ All user routes are mounted under `/users` in `src/index.ts` and defined in `src
 1. Receives `id` from the URL parameters.
 2. Finds and deletes the user by ID using `User.findByIdAndDelete(id)`.
 3. If user not found, returns 404: `{ "errors": { "common": { "msg": "User not found." } } }`
-4. If user had an avatar file, deletes it from `public/uploads/avatars/`.
+4. If the user had an avatar (`public_id`), destroys it on Cloudinary with `cloudinary.uploader.destroy(public_id)`.
 5. Returns 200 with success message: `{ "message": "User was removed successfully!" }`
 
 **On failure:** Returns 500 with error: `{ "errors": { "common": { "msg": "Unknown error occurred." } } }`
@@ -107,8 +108,8 @@ The user management page template is an EJS file that mixes HTML with server-sid
     <% users.forEach(user => { %>
       <tr id="<%= user._id %>">
         <td class="name">
-          <% if (user.avatar) { %>
-            <img src="./uploads/avatars/<%= user.avatar %>" />
+          <% if (user.url) { %>
+            <img src="<%= user.url %>" />
           <% } else { %>
             <img src="./images/nophoto.png" />
           <% } %>
@@ -229,11 +230,11 @@ The modal contains a form with the following fields:
 
 **File:** `src/middlewares/users/avatarUpload.ts`
 
-Uses Multer to handle avatar file uploads:
+Uses Multer to parse avatar uploads into memory:
 
 | Setting | Value |
 |---------|-------|
-| Upload folder | `public/uploads/avatars/` |
+| Storage | Memory (`req.files[0].buffer`, then uploaded to Cloudinary) |
 | Allowed types | `image/jpg`, `image/jpeg`, `image/png` |
 | Max file size | 5 MB |
 | Error message | "Only .jpg, .jpeg, .png formate are allowed!" |
@@ -270,8 +271,7 @@ All text fields are trimmed.
 
 1. Collects validation results from `express-validator`.
 2. If there are errors:
-   - Deletes any uploaded avatar files (cleanup).
-   - Returns 400 with mapped errors as JSON.
+   - Returns 400 with mapped errors as JSON. (Files are held in memory, so nothing needs cleaning up — the avatar is only uploaded to Cloudinary after validation passes.)
 3. If no errors, calls `next()` to proceed to `addUser` controller.
 
 ---
@@ -282,7 +282,7 @@ These variables are available inside `users.ejs`:
 
 | Variable | Where It Comes From | What It Contains |
 |----------|---------------------|------------------|
-| `users` | `res.render("users", { users })` | Array of user objects with `_id`, `name`, `email`, `mobile`, `avatar` |
+| `users` | `res.render("users", { users })` | Array of user objects with `_id`, `name`, `email`, `mobile`, `public_id`, `url` |
 | `loginUser` | `res.locals.loginUser` (set by auth middleware) | Logged-in user object (for header menu) |
 
 ---
@@ -295,7 +295,7 @@ These variables are available inside `users.ejs`:
 - `requireAuth` middleware ensures user is logged in
 - `getUsers` controller runs:
   1. Queries all users from MongoDB
-  2. Selects `_id`, `name`, `email`, `mobile`, `avatar`
+  2. Selects `_id`, `name`, `email`, `mobile`, `public_id`, `url`
   3. Renders `users.ejs` with the users array
 - User sees a table of all users
 
@@ -303,13 +303,14 @@ These variables are available inside `users.ejs`:
 - User clicks `+` button → modal opens
 - User fills in name, email, mobile, password, and optional avatar
 - User clicks Submit
-- `avatarUpload` middleware saves the avatar file
+- `avatarUpload` middleware parses the avatar file into memory (nothing written to disk)
 - `addUserValidator` checks all fields
 - `addUserValidatorHandler` returns 400 with errors if validation fails
 - `addUser` controller runs:
   1. Hashes the password with argon2
-  2. Creates the user document
-  3. Returns 201 success
+  2. Uploads the avatar to Cloudinary (if provided)
+  3. Creates the user document
+  4. Returns 201 success
 - Frontend shows success toast, closes modal, reloads page after 1 second
 
 ### Step 3 — Delete a user:
@@ -317,7 +318,7 @@ These variables are available inside `users.ejs`:
 - `deleteUser(userId)` sends `DELETE /users/:userId`
 - `removeUser` controller runs:
   1. Finds and deletes the user by ID
-  2. Deletes the avatar file if it exists
+  2. Destroys the Cloudinary avatar if `public_id` exists
   3. Returns success or error
 - Frontend shows toast and removes the user row from the table
 
@@ -364,8 +365,8 @@ src/
 │   └── handleAuth.ts      # checkAuthentication, requireAuth
 ├── models/
 │   ├── conversation.ts   # creator, participant, last_updated
-│   ├── message.ts        # text, sender, receiver, conversations, attachment[]
-│   └── user.ts           # name, email, mobile, avatar, password, role
+│   ├── message.ts        # text, sender, receiver, conversations, attachment[{ public_id, url, resource_type }]
+│   └── user.ts           # name, email, mobile, public_id, url, password, role
 ├── router/
 │   ├── inbox.ts          # Route definitions
 │   ├── login.ts          # Route definitions
@@ -384,9 +385,7 @@ views/
     └── user.modal.ejs
 
 public/
-├── uploads/
-│   ├── avatars/
-│   └── attachments/
+├── images/
 ├── js/
 │   ├── moment.js
 │   └── toastify.js
@@ -402,4 +401,4 @@ public/
 2. **No search/filter** — the user list shows all users without pagination or search
 3. **No role management** — the `role` field exists in the schema but there's no UI to change it
 4. **No self-delete protection** — a user could potentially delete their own account
-5. **Avatar cleanup on validation error** — already implemented: uploaded avatar files are deleted when validation fails (`addUserValidatorHandler`)
+5. **Avatar handling** — avatars are uploaded to Cloudinary after validation; rejected registrations never create assets, so no cleanup is needed.

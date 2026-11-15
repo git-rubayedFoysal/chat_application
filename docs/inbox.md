@@ -49,7 +49,7 @@ Query param:
 **What happens step-by-step:**
 
 1. The server looks for all conversations where the logged-in user is either the **creator** or the **participant**.
-2. It fetches the `name` and `avatar` of both users in each conversation.
+2. It fetches the `name` and `url` of both users in each conversation.
 3. It saves the conversation list into `res.locals.data` so the template can use it.
 4. It also saves the `moment` library into `res.locals.moment` so dates can be shown in relative format (like "2 hours ago").
 5. It renders the `inbox.ejs` template.
@@ -59,8 +59,8 @@ Query param:
 data = [
   {
     "_id": "conv123",
-    "creator": { "_id": "userA", "name": "Alice", "avatar": "alice.jpg" },
-    "participant": { "_id": "userB", "name": "Bob", "avatar": "bob.jpg" },
+    "creator": { "_id": "userA", "name": "Alice", "url": "https://res.cloudinary.com/.../alice.jpg" },
+    "participant": { "_id": "userB", "name": "Bob", "url": "https://res.cloudinary.com/.../bob.jpg" },
     "last_updated": "2026-11-12T10:00:00Z"
   }
 ]
@@ -80,7 +80,7 @@ data = [
    - **Name:** matches any user whose name contains the query (case-insensitive).
    - **Mobile:** matches any user whose phone number starts with the query.
    - **Email:** matches any user whose email exactly equals the query.
-4. It returns a list of matching users with their `name`, `email`, `mobile`, and `avatar`.
+4. It returns a list of matching users with their `name`, `email`, `mobile`, and `url`.
 
 **Frontend use:** The "Create New Conversation" modal calls this every time the user types in the search box.
 
@@ -135,7 +135,7 @@ the stored format would avoid this.
 2. The `conversationParticipant` middleware checks that the logged-in user is
    part of this conversation; the controller repeats the check itself before
    reading any messages.
-3. It fetches both the `creator` and `participant` details (populated with `name` and `avatar`).
+3. It fetches both the `creator` and `participant` details (populated with `name` and `url`).
 4. It figures out who the "other user" is (the person who is NOT the logged-in user).
 5. It fetches all messages belonging to this conversation, sorted by time (newest first), with sender populated.
 6. It returns the messages and the other user's details.
@@ -146,13 +146,19 @@ the stored format would avoid this.
   "data": {
     "messages": [
       {
-        "sender": { "_id": "userA", "name": "Alice", "avatar": "alice.jpg" },
+        "sender": { "_id": "userA", "name": "Alice", "url": "https://res.cloudinary.com/.../alice.jpg" },
         "text": "Hello!",
         "date_time": "2026-11-12T10:05:00Z",
-        "attachment": []
+        "attachment": [
+          {
+            "public_id": "chat_application/messages/conv123/file",
+            "url": "https://res.cloudinary.com/.../file.pdf",
+            "resource_type": "image"
+          }
+        ]
       }
     ],
-    "participant": { "_id": "userB", "name": "Bob", "avatar": "bob.jpg" }
+    "participant": { "_id": "userB", "name": "Bob", "url": "https://res.cloudinary.com/.../bob.jpg" }
   },
   "user": "userA",
   "conversationId": "conv123"
@@ -174,9 +180,9 @@ the stored format would avoid this.
    - `attachment`: any files attached (optional)
 2. The server validates that the message text is not empty.
 3. It checks that the logged-in user is part of this conversation.
-4. It saves the message to the database with sender, receiver, conversation, text, and any attachment filenames.
+4. It uploads each attachment to Cloudinary (from memory) and saves the message with sender, receiver, conversation, text, and the array of `{ public_id, url, resource_type }` attachment objects.
 5. It updates the conversation's `last_updated` timestamp so it moves to the top of the list.
-6. **It populates the message's sender and receiver** with `name` and `avatar`.
+6. **It populates the message's sender and receiver** with `name` and `url`.
 7. **It emits a Socket.io event** to all clients in the conversation room:
    ```typescript
    io.to(conversationId).emit("new_message", {
@@ -196,8 +202,9 @@ the stored format would avoid this.
 
 1. The frontend sends a `conversationId` in the URL with a DELETE request.
 2. The server checks if the logged-in user is actually part of this conversation (security check).
-3. If authorized, the server deletes the conversation document from MongoDB.
-4. All messages belonging to this conversation are also deleted (`deleteMany` by conversationId).
+3. If authorized, the server collects each message's attachments and destroys their Cloudinary assets (`cloudinary.uploader.destroy(public_id)`).
+4. The conversation document is deleted from MongoDB.
+5. All messages belonging to this conversation are also deleted (`deleteMany` by conversationId).
 5. **The server broadcasts `conversation_deleted` to all connected clients** via Socket.io so the other participant's sidebar updates in real time.
 6. It returns a success message.
 
@@ -339,7 +346,7 @@ The template contains inline `<script>` tags with main functions.
    - Loops through all messages and builds HTML for each one:
      - Shows sender avatar (unless it is the logged-in user).
      - Shows message text.
-     - Shows attachments as images (if any).
+     - Renders attachments from their Cloudinary `url` (images inline, documents as links).
      - Shows time using `moment().fromNow()`.
    - Inserts all message HTML into `#chat-message-list`.
    - Sets `#conversation-partner` text to the other person's name.
@@ -359,7 +366,7 @@ The template contains inline `<script>` tags with main functions.
 4. Builds message HTML with:
    - Sender avatar (hidden for own messages)
    - Message text (`message.text`)
-   - Attachments as images (if any)
+   - Attachments rendered from their Cloudinary `url` (images inline, documents as links)
    - Relative timestamp using `moment(message.date_time).fromNow()`
 5. Inserts message at the top of `#chat-message-list` (handles empty list case).
 
@@ -377,7 +384,7 @@ The template contains inline `<script>` tags with main functions.
    - `participant` exists and has an `id`
    - `current_conversation_id` is set
 3. Collects form data (message text, files) into `FormData`.
-4. Adds extra fields: `receiverId`, `receiverName`, `avatar`, `conversationId`.
+4. Adds extra fields: `receiverId`, `receiverName`, `avatar`, `conversationId` (the `avatar` field is legacy and no longer read by the server).
 5. Sends everything via `POST /inbox/message`.
 6. If successful:
    - Clears the form (`form.reset()`).
@@ -489,14 +496,16 @@ These variables are available inside `inbox.ejs`:
 
 **File:** `src/middlewares/chat/attachmentUpload.ts`
 
-Used by `POST /inbox/message`. It uses Multer to save uploaded files into `public/uploads/attachments/`.
+Used by `POST /inbox/message`. It uses Multer with **memory storage** to parse
+uploaded files, which `sendMessage` then streams to Cloudinary.
 
 **Allowed file types:**
 - Images: JPEG, PNG, GIF, WebP
 - Documents: PDF, DOC, DOCX, XLS, XLSX, TXT
 - Max file size: 20MB
 
-Files are saved with sanitized filenames (lowercase, spaces replaced with hyphens, timestamp appended).
+Each file is uploaded to `chat_application/messages/<conversationId>` using
+`resource_type: "auto"`, and the message stores `{ public_id, url, resource_type }` per file.
 
 ---
 
@@ -684,8 +693,8 @@ src/
 │       └── conversationAuth.ts  # conversationParticipant authorization middleware
 ├── models/
 │   ├── conversation.ts   # creator, participant, last_updated
-│   ├── message.ts        # text, sender, receiver, conversations, attachment[]
-│   └── user.ts           # name, email, mobile, avatar, etc.
+│   ├── message.ts        # text, sender, receiver, conversations, attachment[{ public_id, url, resource_type }]
+│   └── user.ts           # name, email, mobile, public_id, url, etc.
 ├── router/
 │   └── inbox.ts          # Route definitions
 ├── socket.ts             # Socket.io setup (initIo, getIo)
@@ -699,9 +708,7 @@ views/
     └── footer.ejs
 
 public/
-├── uploads/
-│   ├── avatars/
-│   └── attachments/      # Chat file uploads
+├── images/
 ├── js/
 │   ├── moment.js
 │   └── toastify.js

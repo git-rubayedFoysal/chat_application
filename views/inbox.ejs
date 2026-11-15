@@ -11,9 +11,8 @@
         <% if(conversation.creator._id==loginUser.id) { %>
           <div class="conversation" data-conversation-id="<%= conversation._id %>"
             onclick="getMessages('<%= conversation._id %>', '<%= conversation.participant.name %>')">
-            <% if (conversation.participant.avatar) { %>
-              <img src="./uploads/avatars/<%= conversation.participant.avatar %>"
-                alt="<%= conversation.participant.name %>" />
+            <% if (conversation.participant.url) { %>
+              <img src="<%= conversation.participant.url %>" alt="<%= conversation.participant.name %>" />
               <% } else { %>
                 <img src="./images/nophoto.png" />
                 <% } %>
@@ -27,9 +26,8 @@
           <% } else { %>
             <div class="conversation" data-conversation-id="<%= conversation._id %>"
               onclick="getMessages('<%= conversation._id %>', '<%= conversation.creator.name %>')">
-              <% if (conversation.creator.avatar) { %>
-                <img src="./uploads/avatars/<%= conversation.creator.avatar %>"
-                  alt="<%= conversation.creator.name %>" />
+              <% if (conversation.creator.url) { %>
+                <img src="<%= conversation.creator.url %>" alt="<%= conversation.creator.name %>" />
                 <% } else { %>
                   <img src="./images/nophoto.png" />
                   <% } %>
@@ -90,6 +88,29 @@
       const searchInput = document.querySelector('#search-input');
       const chatInput = document.querySelector('#chat-input');
 
+      // Attachments are stored as { public_id, url, resource_type } objects on
+      // Cloudinary. Only real images render inline; everything else (PDF, DOC,
+      // XLS, TXT) renders as a downloadable link.
+      const renderAttachments = (attachments) => {
+        if (!Array.isArray(attachments) || attachments.length === 0) {
+          return '';
+        }
+
+        const items = attachments
+          .filter((attachment) => attachment && attachment.url)
+          .map((attachment) => {
+            const fileName = attachment.url.split('/').pop();
+            const isImage = /\.(jpe?g|png|gif|webp)$/i.test(attachment.url);
+
+            return isImage
+              ? `<img src="${attachment.url}" />`
+              : `<a href="${attachment.url}" target="_blank" rel="noopener noreferrer">${fileName}</a>`;
+          })
+          .join(' ');
+
+        return `<div class="attachments">${items}</div>`;
+      };
+
       // typing detector for search input
       let searchTypingTimer;
       searchInput.addEventListener('keyup', function () {
@@ -139,10 +160,10 @@
             result.data.forEach(conversation => {
               const participantName = conversation.creator._id === loginUserId ? conversation.participant.name : conversation.creator.name;
               const safeName = participantName.replace(/'/g, "\\'");
-              const avatar = conversation.creator._id === loginUserId ? (conversation.creator.avatar
-                ? "./uploads/avatars/" + conversation.creator.avatar
-                : "./images/nophoto.png") : (conversation.participant.avatar
-                  ? "./uploads/avatars/" + conversation.participant.avatar
+              const avatar = conversation.creator._id === loginUserId ? (conversation.participant.url
+                ? conversation.participant.url
+                : "./images/nophoto.png") : (conversation.creator.url
+                  ? conversation.creator.url
                   : "./images/nophoto.png");
 
               html += `<li data-conversation-id="${conversation._id}" onclick="getMessages('${conversation._id}', '${safeName}')">
@@ -199,18 +220,10 @@
           // message class
           const messageClass = message.sender._id === loginUserId ? 'you-message' : 'other-message';
 
-          const senderAvatar = message.sender.avatar ? `<img src="./uploads/avatars/${message.sender.avatar}" alt="${message.sender.name}" />` : `<img src="./images/nophoto.png" alt="${message.sender.name}" />`;
+          const senderAvatar = message.sender.url ? `<img src="${message.sender.url}" alt="${message.sender.name}" />` : `<img src="./images/nophoto.png" alt="${message.sender.name}" />`;
 
           // message attachments
-          let attachments = '<div class="attachments">';
-
-          if (message.attachment && message.attachment.length > 0) {
-            message.attachment.forEach(attachment => {
-              attachments += `<img src="./uploads/attachments/${attachment}" /> `;
-            });
-          }
-
-          attachments += '</div>';
+          const attachments = renderAttachments(message.attachment);
 
           let messageHTML;
 
@@ -333,20 +346,12 @@
 
               if (data.messages.length > 0) {
                 data.messages.forEach((message) => {
-                  let senderAvatar = message.sender.avatar ? `./uploads/avatars/${message.sender.avatar}` : './images/nophoto.png';
+                  let senderAvatar = message.sender.url ? message.sender.url : './images/nophoto.png';
                   const messageClass = message.sender._id === loginUserId ? 'you-message' : 'other-message';
                   const showAvatar = message.sender._id === loginUserId ? '' : `<img src="${senderAvatar}" alt="${message.sender.name}" />`;
 
                   // message attachments
-                  let attachments = '<div class="attachments">';
-
-                  if (message.attachment && message.attachment.length > 0) {
-                    message.attachment.forEach(attachment => {
-                      attachments += `<img src="./uploads/attachments/${attachment}" /> `;
-                    });
-                  }
-
-                  attachments += '</div>';
+                  const attachments = renderAttachments(message.attachment);
 
                   // final message html
                   let messageHTML = `<div class="message-row ${messageClass}"><div class="message-content">
@@ -401,7 +406,7 @@
         const formData = new FormData(form);
         formData.append('receiverId', participant._id);
         formData.append('receiverName', participant.name);
-        formData.append('avatar', participant.avatar || '');
+        formData.append('avatar', participant.url || '');
         formData.append('conversationId', current_conversation_id);
 
         // send the request to server

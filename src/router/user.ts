@@ -10,8 +10,7 @@ const router = express.Router();
 
 router.get("/", getUsers);
 
-// avatarUpload must parse multipart data before validators inspect the body;
-// the handler also cleans up the uploaded avatar if validation fails.
+// avatarUpload must parse multipart data before validators inspect the body.
 router.post(
   "/",
   avatarUpload,

@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# One-time scripts (do not commit)
+scripts/
+
 # Environment variables and secrets
 .env
 .env.local

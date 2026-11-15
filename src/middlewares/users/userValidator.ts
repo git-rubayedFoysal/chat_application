@@ -2,8 +2,6 @@ import { body, validationResult } from "express-validator";
 import User from "../../models/user.js";
 import createError from "http-errors";
 import type { RequestHandler } from "express";
-import { unlink } from "node:fs/promises";
-import path from "node:path";
 
 export const addUserValidator = [
   body("name")
@@ -57,20 +55,6 @@ export const addUserValidatorHandler: RequestHandler = async (
     if (Object.keys(mappedError).length === 0) {
       return next();
     } else {
-      // Multer already wrote the file to disk before validation ran, so a
-      // rejected submission must clean it up to avoid orphaned avatars.
-      if (Array.isArray(req.files)) {
-        await Promise.all(
-          req.files.map((file) =>
-            unlink(
-              path.join(
-                import.meta.dirname,
-                `../../../public/uploads/avatars/${file.filename}`,
-              ),
-            ),
-          ),
-        );
-      }
       res.status(400).json({
         errors: mappedError,
       });

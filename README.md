@@ -15,7 +15,7 @@ A real-time one-to-one chat application built with **Node.js, TypeScript, Expres
 - Search users by name, email, or mobile number.
 - Admin-only user creation and deletion.
 - Upload user avatars.
-- Automatic avatar cleanup if registration fails.
+- Avatars are stored on Cloudinary; validation runs before the upload so rejected registrations leave no orphaned assets.
 
 ### Conversations
 - One-to-one conversations.
@@ -35,7 +35,7 @@ A real-time one-to-one chat application built with **Node.js, TypeScript, Expres
 - Maximum attachment size: 20 MB.
 - JPG, JPEG, and PNG avatars.
 - Maximum avatar size: 5 MB.
-- Local disk storage using Multer.
+- Cloud storage via Cloudinary (Multer parses the request into memory, then files are streamed to Cloudinary).
 
 ## Tech Stack
 
@@ -49,7 +49,7 @@ A real-time one-to-one chat application built with **Node.js, TypeScript, Expres
 | Real-time Communication | Socket.IO |
 | Authentication | JWT, Argon2 |
 | Validation | express-validator |
-| File Upload | Multer |
+| File Upload | Multer + Cloudinary |
 | Template Engine | EJS |
 | Frontend | Vanilla JavaScript, CSS |
 | Notifications | Toastify |
@@ -187,14 +187,13 @@ chat-application/
 │   └── *-router-flow.md
 │
 ├── public/
+│   ├── images/
 │   ├── js/
-│   ├── stylesheets/
-│   └── uploads/
-│       ├── avatars/
-│       └── attachments/
+│   └── stylesheets/
 │
 ├── src/
 │   ├── config/
+│   │   ├── cloudinary.ts
 │   │   └── env.ts
 │   ├── controllers/
 │   ├── middlewares/
@@ -290,8 +289,8 @@ The following features and improvements are not currently implemented:
 - Remember-me functionality is not available.
 - Logging out does not revoke the JWT server-side.
 - Role changes require re-login because the role is included in the JWT.
-- Uploaded files are stored locally.
-- Attachments are not automatically cleaned up when messages or conversations are deleted.
+- Avatars and attachments are stored on Cloudinary; the local `public/uploads` folder is no longer used.
+- Message attachments are removed from Cloudinary when a conversation is deleted, but individual messages cannot be deleted.
 
 ## Future Improvements
 
@@ -305,8 +304,7 @@ Potential improvements for future development:
 - Implement password reset and account verification.
 - Add rate limiting and stronger security controls.
 - Add server-side JWT revocation or token rotation.
-- Implement automatic cleanup of unused uploaded files.
-- Introduce cloud-based file storage.
+- Add a background job to prune orphaned Cloudinary assets.
 - Add automated testing.
 
 ## Environment Variables
@@ -321,6 +319,7 @@ Potential improvements for future development:
 | `COOKIE_NAME` | Authentication cookie name |
 | `COOKIE_MAX_AGE` | Cookie lifetime in milliseconds |
 | `COOKIE_SECRET` | Secret used for cookie signing |
+| `CLOUDINARY_URL` | Cloudinary credentials URL (`cloudinary://<api_key>:<api_secret>@<cloud_name>`) |
 
 **Important:** Never commit your actual `.env` file. Keep secrets private and provide an `.env.example` file with placeholder values.
 

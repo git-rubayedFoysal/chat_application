@@ -22,8 +22,8 @@
         <% users.forEach(user => { %>
           <tr id="<%= user._id %>">
             <td class="name">
-              <% if (user.avatar) { %>
-                <img src="./uploads/avatars/<%= user.avatar %>" />
+              <% if (user.url) { %>
+                <img src="<%= user.url %>" />
               <% } else { %>
                 <img src="./images/nophoto.png" />
               <% } %>

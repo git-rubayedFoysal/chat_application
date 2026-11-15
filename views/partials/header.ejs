@@ -23,10 +23,10 @@
       <div class="menu-item"><a href="/inbox">Inbox</a></div>
       <div class="menu-item"><a href="/users">Users</a></div>
       <div class="menu-item">
-        <% if (loginUser && loginUser.avatar) { %>
-          <img src="./uploads/avatars/<%= loginUser.avatar %>" alt="<%= loginUser.name %>" />
+        <% if (loginUser && loginUser.url) { %>
+          <img src="<%= loginUser.url %>" alt="<%= loginUser.username %>" />
         <% } else { %>
-          <img src="./images/nophoto.png" alt="<%= loginUser.name %>" />
+          <img src="./images/nophoto.png" alt="<%= loginUser.username %>" />
         <% } %>
         <a href="#" onclick="logout()">Logout</a>
       </div>
