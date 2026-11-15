@@ -47,6 +47,9 @@ app.use(
   inboxRouter,
 );
 
+// Health check endpoint
+app.get("/health", (_req, res) => res.status(200).json({ status: "ok" }));
+
 // Fallback handlers for unmatched routes and thrown errors
 app.use(notFoundHandler);
 app.use(errorHandler);
@@ -54,7 +57,7 @@ app.use(errorHandler);
 try {
   await connectDB(env.MONGO_URI);
 
-  server.listen(env.PORT, () => {
+  server.listen(env.PORT, "0.0.0.0", () => {
     console.log(`Server running on port:${env.PORT}`);
   });
 } catch (error) {

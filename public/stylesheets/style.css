@@ -642,36 +642,146 @@ input[type="submit"]:active {
 
 .message-row {
   display: grid;
-  margin-bottom: 20px;
+  width: 100%;
+  margin-bottom: 18px;
 }
 
 .message-content {
   display: grid;
+  gap: 5px 12px;
+  width: fit-content;
+  max-width: min(100%, 560px);
 }
 
 .message-content img {
   width: 32px;
 }
 
-/* Attachment thumbnails (inline images) */
 .attachments {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  margin-top: 2px;
 }
 
-.attachments img {
+.attachment-image {
+  display: block;
+  max-width: min(100%, 280px);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(10, 12, 28, 0.3);
+}
+
+.attachments .attachment-image img {
+  display: block;
   width: auto;
-  max-width: 220px;
-  max-height: 220px;
-  border-radius: 10px;
+  max-width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  border: 0;
+  border-radius: inherit;
+  transition: transform 0.2s ease;
 }
 
-.attachments a {
-  color: var(--light);
-  word-break: break-all;
+.attachment-image:hover img {
+  transform: scale(1.025);
+}
+
+.attachment-card {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: min(100%, 320px);
+  min-width: 0;
+  padding: 10px 12px;
+  color: #eef0ff;
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(10, 12, 28, 0.32);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.attachment-card:hover {
+  transform: translateY(-1px);
+  background: rgba(10, 12, 28, 0.52);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.attachment-badge {
+  display: grid;
+  flex: 0 0 42px;
+  min-height: 42px;
+  place-items: center;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #eef0ff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.attachment-card--pdf .attachment-badge {
+  color: #fecaca;
+  background: rgba(248, 113, 113, 0.18);
+}
+
+.attachment-card--word .attachment-badge {
+  color: #bfdbfe;
+  background: rgba(96, 165, 250, 0.18);
+}
+
+.attachment-card--spreadsheet .attachment-badge {
+  color: #bbf7d0;
+  background: rgba(52, 211, 153, 0.18);
+}
+
+.attachment-card--text .attachment-badge {
+  color: #a5f3fc;
+  background: rgba(34, 211, 238, 0.16);
+}
+
+.attachment-card--video .attachment-badge {
+  color: #ddd6fe;
+  background: rgba(167, 139, 250, 0.18);
+}
+
+.attachment-details {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.attachment-name {
+  overflow: hidden;
+  font-size: 1.3rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-kind {
+  color: #a5a9cc;
+  font-size: 1.1rem;
+}
+
+.attachment-open {
+  margin-left: auto;
+  color: #a5a9cc;
+  font-size: 1.6rem;
+}
+
+.message-text {
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .you-message {
@@ -679,9 +789,12 @@ input[type="submit"]:active {
 }
 
 .you-message .message-content {
+  grid-template-columns: minmax(0, 1fr);
   justify-items: end;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  grid-column-gap: 15px;
+}
+
+.you-message .message-text {
+  justify-self: end;
 }
 
 .other-message {
@@ -689,20 +802,21 @@ input[type="submit"]:active {
 }
 
 .other-message .message-content {
-  grid-template-columns: 48px 1fr 1fr;
-  grid-column-gap: 15px;
+  width: min(100%, 600px);
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: start;
 }
 
-.message-row img:first-of-type {
+.other-message .message-content > img {
   border-radius: 100%;
-  grid-row: span 2;
+  grid-row: span 3;
   border: 2px solid var(--tertiary);
 }
 
 .message-text {
+  justify-self: start;
   padding: 10px 16px;
   font-size: 1.6rem;
-  margin-bottom: 5px;
   line-height: 1.5;
 }
 
@@ -1106,12 +1220,16 @@ input[type="submit"]:active {
     grid-column-gap: 10px;
   }
 
-  /* Attachments render larger on mobile but never overflow the screen */
-  .attachments img {
-    width: min(60vw, 220px);
-    height: auto;
-    border-radius: 10px;
-    margin-top: 6px;
+  .message-content {
+    max-width: 100%;
+  }
+
+  .attachments .attachment-image img {
+    max-height: 240px;
+  }
+
+  .attachment-card {
+    width: min(100%, 280px);
   }
 
   /* Toasts never exceed the viewport */

@@ -88,27 +88,79 @@
       const searchInput = document.querySelector('#search-input');
       const chatInput = document.querySelector('#chat-input');
 
+      const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      })[character]);
+
       // Attachments are stored as { public_id, url, resource_type } objects on
-      // Cloudinary. Only real images render inline; everything else (PDF, DOC,
-      // XLS, TXT) renders as a downloadable link.
+      // Cloudinary. Images get clickable previews; documents use type-labeled cards.
       const renderAttachments = (attachments) => {
         if (!Array.isArray(attachments) || attachments.length === 0) {
           return '';
         }
 
         const items = attachments
-          .filter((attachment) => attachment && attachment.url)
+          .filter((attachment) => attachment && typeof attachment.url === 'string')
           .map((attachment) => {
-            const fileName = attachment.url.split('/').pop();
-            const isImage = /\.(jpe?g|png|gif|webp)$/i.test(attachment.url);
+            let fileUrl;
+            try {
+              fileUrl = new URL(attachment.url, window.location.origin);
+            } catch {
+              return '';
+            }
+            if (fileUrl.protocol !== 'http:' && fileUrl.protocol !== 'https:') {
+              return '';
+            }
 
-            return isImage
-              ? `<img src="${attachment.url}" />`
-              : `<a href="${attachment.url}" target="_blank" rel="noopener noreferrer">${fileName}</a>`;
+            const encodedName = fileUrl.pathname.split('/').pop();
+            let fileName = encodedName || 'Attachment';
+            try {
+              fileName = decodeURIComponent(fileName);
+            } catch {
+              // Keep the URL-encoded name when it contains malformed escapes.
+            }
+
+            const extension = fileName.match(/\.([^.]+)$/)?.[1]?.toLowerCase() || '';
+            const fileTypes = {
+              pdf: { className: 'pdf', label: 'PDF document', badge: 'PDF' },
+              doc: { className: 'word', label: 'Word document', badge: 'DOC' },
+              docx: { className: 'word', label: 'Word document', badge: 'DOCX' },
+              xls: { className: 'spreadsheet', label: 'Spreadsheet', badge: 'XLS' },
+              xlsx: { className: 'spreadsheet', label: 'Spreadsheet', badge: 'XLSX' },
+              txt: { className: 'text', label: 'Text file', badge: 'TXT' },
+              csv: { className: 'spreadsheet', label: 'Spreadsheet', badge: 'CSV' },
+            };
+            const fileType = Object.hasOwn(fileTypes, extension) ? fileTypes[extension] : (
+              attachment.resource_type === 'video'
+                ? { className: 'video', label: 'Video', badge: 'VIDEO' }
+                : { className: 'file', label: 'File attachment', badge: 'FILE' }
+            );
+            const safeUrl = escapeHtml(fileUrl.href);
+            const safeName = escapeHtml(fileName);
+
+            if (attachment.resource_type === 'image' && /\.(jpe?g|png|gif|webp)$/i.test(fileName)) {
+              return `<a class="attachment-image" href="${safeUrl}" target="_blank" rel="noopener noreferrer" aria-label="Open image: ${safeName}">
+                <img src="${safeUrl}" alt="${safeName}" loading="lazy" />
+              </a>`;
+            }
+
+            return `<a class="attachment-card attachment-card--${fileType.className}" href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${safeName}">
+              <span class="attachment-badge" aria-hidden="true">${fileType.badge}</span>
+              <span class="attachment-details">
+                <span class="attachment-name">${safeName}</span>
+                <span class="attachment-kind">${fileType.label}</span>
+              </span>
+              <span class="attachment-open" aria-hidden="true">Open</span>
+            </a>`;
           })
-          .join(' ');
+          .filter(Boolean)
+          .join('');
 
-        return `<div class="attachments">${items}</div>`;
+        return items ? `<div class="attachments">${items}</div>` : '';
       };
 
       // typing detector for search input
@@ -227,7 +279,7 @@
 
           let messageHTML;
 
-          // do not show avatar for loggedin user
+          // do not show avatar for login user
           if (message.sender._id == loginUserId) {
             messageHTML = `<div class="message-row ${messageClass}"><div class="message-content">
               <div class="message-text">${message.text}</div>
